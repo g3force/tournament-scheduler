@@ -1,0 +1,36 @@
+plugins {
+    id 'java'
+    id 'groovy'
+    id 'application'
+}
+
+group 'edu.robocup.ssl'
+version '1.0'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    annotationProcessor "org.projectlombok:lombok:1.18.20"
+    compileOnly "org.projectlombok:lombok:1.18.20"
+    implementation group: 'org.apache.commons', name: 'commons-collections4', version: '4.4'
+
+
+    // Specific groovy version
+    testImplementation 'org.codehaus.groovy:groovy:3.0.7'
+    testRuntimeOnly 'org.codehaus.groovy:groovy-templates:3.0.7'
+    testRuntimeOnly 'org.codehaus.groovy:groovy-xml:3.0.7'
+    testRuntimeOnly 'org.codehaus.groovy:groovy-json:3.0.7'
+
+    testImplementation platform("org.spockframework:spock-bom:2.0-M4-groovy-3.0")
+    testImplementation "org.spockframework:spock-core"
+}
+
+test {
+    useJUnitPlatform()
+}
+
+application {
+    mainClassName("edu.robocup.ssl.App")
+}

@@ -1,0 +1,98 @@
+@startuml
+
+actor T1
+actor T2
+actor T3
+actor T4
+actor T5
+actor T6
+actor T7
+actor T8
+actor T9
+
+'Upper Round 0
+component UR0_1
+component UR0_2
+
+'Upper Round 1 
+component UR1_1
+component UR1_2
+component UR1_3
+component UR1_4
+
+'Upper Round 2
+component UR2_1
+component UR2_2
+
+'Upper Final
+component UF
+
+'Lower Round 0
+component LR0_1
+component LR0_2
+
+'Lower Round 1
+component LR1_1
+component LR1_2
+
+'Lower Round 2
+component LR2_1
+component LR2_2
+
+'Lower Round 3
+component LR3_1
+
+'Lower Final
+component LF
+'Grand Final
+component GF
+
+'Team assignment
+T1 --> UR1_1
+T2 --> UR1_1
+T3 --> UR0_1
+T4 --> UR0_1
+T5 --> UR1_2
+T6 --> UR1_3
+T7 --> UR0_2
+T8 --> UR0_2
+T9 --> UR1_4
+
+UR0_1 --> UR1_2: W
+UR0_1 --> LR0_1: L
+UR0_2 --> UR1_3: W
+UR0_2 --> LR0_2: L
+
+UR1_1 --> LR0_1: L
+UR1_1 --> UR2_1: W
+
+UR1_2 --> LR1_1: L
+UR1_2 --> UR2_1: W
+
+UR1_3 --> LR1_2: L
+UR1_3 --> UR2_2: W
+
+UR1_4 --> LR0_2: L
+UR1_4 --> UR2_2: W
+
+LR0_1 --> LR1_1: W
+LR0_2 --> LR1_2: W
+
+LR1_1 --> LR2_1: W
+LR1_2 --> LR2_2: W
+
+UR2_1 --> UF: W
+UR2_1 --> LR2_1: L
+UR2_2 --> UF: W
+UR2_2 --> LR2_2: L
+
+UF --> LF: L
+
+LR2_1 --> LR3_1: W
+LR2_2 --> LR3_1: W
+LR3_1 --> LF: W
+
+UF --> GF: W
+LF --> GF: W
+
+@enduml
