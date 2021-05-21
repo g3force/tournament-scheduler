@@ -35,5 +35,5 @@ test {
 }
 
 application {
-    mainClassName("edu.robocup.ssl.App")
+    mainClass.set("edu.robocup.ssl.App")
 }
