@@ -15,6 +15,7 @@ dependencies {
     annotationProcessor "org.projectlombok:lombok:1.18.20"
     compileOnly "org.projectlombok:lombok:1.18.20"
     implementation group: 'org.apache.commons', name: 'commons-collections4', version: '4.4'
+    implementation group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
 
 
     // Specific groovy version

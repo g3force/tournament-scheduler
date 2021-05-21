@@ -16,7 +16,6 @@ import java.util.stream.Collectors;
 public class Scheduler {
 
     private final Map<String, MatchAssignment> emptyAssignmentMap;
-    private final List<UmlComponentDiagram.ConnectionPair> connections;
     private final int initialStart;
 
     public static Scheduler load(Path tournamentDiagram, int initialStart) throws IOException {
@@ -26,7 +25,7 @@ public class Scheduler {
         Map<String, Match> matches = loadMatches(diagram);
         matches.forEach((name, match) -> emptyAssignmentMap.put(name, MatchAssignment.of(match)));
 
-        return new Scheduler(emptyAssignmentMap, diagram.getConnections(), initialStart);
+        return new Scheduler(emptyAssignmentMap, initialStart);
     }
 
     private static Map<String, Match> loadMatches(UmlComponentDiagram diagram) {
@@ -40,25 +39,27 @@ public class Scheduler {
         return matches;
     }
 
-    private Map<String, MatchAssignment> assignTeamsToInitialMatches(List<Team> teams) {
-        Map<String, Team> teamAssignment = new HashMap<>();
-        for (var i = 0; i < teams.size(); i++) {
-            teamAssignment.put("T" + (i + 1), teams.get(i));
-        }
+    public Map<Match, Integer> getTeamDemand() {
+        return emptyAssignmentMap.values().stream()
+                .map(MatchAssignment::getMatch)
+                .filter(m -> m.getPredecessors().size() != 2)
+                .collect(Collectors.toMap(m -> m, m -> 2 - m.getPredecessors().size()));
+    }
 
+    private Map<String, MatchAssignment> assignTeamsToInitialMatches(Map<Match, List<Team>> teams) {
         var matchAssignmentMap = new HashMap<>(emptyAssignmentMap);
-
-        connections.stream()
-                .filter(e -> teamAssignment.containsKey(e.getFrom()))
-                .forEach(e -> matchAssignmentMap.put(
-                        e.getTo(),
-                        matchAssignmentMap.get(e.getTo()).assign(teamAssignment.get(e.getFrom()))
-                        )
-                );
+        for (var entry : teams.entrySet()) {
+            String matchName = entry.getKey().getName();
+            var assignment = matchAssignmentMap.get(matchName);
+            for (var team : entry.getValue()) {
+                assignment = assignment.assign(team);
+            }
+            matchAssignmentMap.put(matchName, assignment);
+        }
         return matchAssignmentMap;
     }
 
-    public List<Map<String, MatchAssignment>> run(List<Team> teamMapping) {
+    public List<Map<String, MatchAssignment>> run(Map<Match, List<Team>> teamMapping) {
         List<Map<String, MatchAssignment>> sets = new ArrayList<>();
         sets.add(assignTeamsToInitialMatches(teamMapping));
         List<Map<String, MatchAssignment>> allScheduled = new ArrayList<>();
