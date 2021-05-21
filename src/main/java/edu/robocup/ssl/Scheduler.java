@@ -14,12 +14,11 @@ import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 public class Scheduler {
-
     private final Map<String, MatchAssignment> emptyAssignmentMap;
     private final int initialStart;
 
-    public static Scheduler load(Path tournamentDiagram, int initialStart) throws IOException {
-        var diagram = UmlComponentDiagram.parse(tournamentDiagram);
+    public static Scheduler load(Path tournamentDiagramPath, int initialStart) throws IOException {
+        var diagram = UmlComponentDiagram.parse(tournamentDiagramPath);
 
         Map<String, MatchAssignment> emptyAssignmentMap = new HashMap<>();
         Map<String, Match> matches = loadMatches(diagram);
@@ -46,33 +45,32 @@ public class Scheduler {
                 .collect(Collectors.toMap(m -> m, m -> 2 - m.getPredecessors().size()));
     }
 
-    private Map<String, MatchAssignment> assignTeamsToInitialMatches(Map<Match, List<Team>> teams) {
+    private Schedule assignTeamsToMatches(Map<Match, List<Team>> matchToTeamMap) {
         var matchAssignmentMap = new HashMap<>(emptyAssignmentMap);
-        for (var entry : teams.entrySet()) {
-            String matchName = entry.getKey().getName();
+        for (var entry : matchToTeamMap.entrySet()) {
+            var matchName = entry.getKey().getName();
+            var teams = entry.getValue();
             var assignment = matchAssignmentMap.get(matchName);
-            for (var team : entry.getValue()) {
-                assignment = assignment.assign(team);
-            }
-            matchAssignmentMap.put(matchName, assignment);
+            matchAssignmentMap.put(matchName, assignment.assign(teams));
         }
-        return matchAssignmentMap;
+        return new Schedule(matchAssignmentMap);
     }
 
-    public List<Map<String, MatchAssignment>> run(Map<Match, List<Team>> teamMapping) {
-        List<Map<String, MatchAssignment>> sets = new ArrayList<>();
-        sets.add(assignTeamsToInitialMatches(teamMapping));
-        List<Map<String, MatchAssignment>> allScheduled = new ArrayList<>();
+    public List<Schedule> findAllSchedules(Map<Match, List<Team>> teamMapping) {
+        List<Schedule> sets = new ArrayList<>();
+        sets.add(assignTeamsToMatches(teamMapping));
+        List<Schedule> allScheduled = new ArrayList<>();
 
         while (!sets.isEmpty()) {
-            List<Map<String, MatchAssignment>> newSets = new ArrayList<>();
+            List<Schedule> newSets = new ArrayList<>();
             for (var set : sets) {
-                var scheduleAssignment = scheduleMatches(set);
+                var scheduleAssignment = scheduleNextMatch(set);
                 scheduleAssignment.ifPresentOrElse(
                         s -> {
-                            var newSet = new HashMap<>(set);
+                            var newSet = new HashMap<>(set.getAssignmentMap());
                             newSet.put(s.getMatch().getName(), s);
-                            newSets.addAll(assignTeams(Collections.unmodifiableMap(newSet), s));
+                            var newSchedule = new Schedule(Collections.unmodifiableMap(newSet));
+                            newSets.addAll(assignTeams(newSchedule, s));
                         },
                         () -> allScheduled.add(set));
             }
@@ -83,53 +81,43 @@ public class Scheduler {
     }
 
 
-    private Optional<MatchAssignment> scheduleMatches(Map<String, MatchAssignment> assignments) {
-
-        return assignments.values().stream()
+    private Optional<MatchAssignment> scheduleNextMatch(Schedule schedule) {
+        return schedule.getAssignmentMap().values().stream()
                 .filter(MatchAssignment::isNotScheduled)
                 .filter(MatchAssignment::isTeamsAssigned)
                 .findAny()
-                .map(m -> scheduleMatch(assignments, m));
+                .map(m -> scheduleMatch(schedule, m));
     }
 
-    private MatchAssignment scheduleMatch(Map<String, MatchAssignment> assignments, MatchAssignment assignment) {
+    private MatchAssignment scheduleMatch(Schedule schedule, MatchAssignment assignment) {
         int startTime = assignment.getMatch().getPredecessors().stream()
-                .mapToInt(m -> assignments.get(m.getName()).getStartTime()).max().orElse(initialStart);
+                .mapToInt(m -> schedule.getAssignmentMap().get(m.getName()).getStartTime()).max().orElse(initialStart);
         return assignment.schedule(startTime + 1);
     }
 
-    private static List<Map<String, MatchAssignment>> assignTeams(
-            Map<String, MatchAssignment> assignments,
-            MatchAssignment assignment) {
-        List<Map<String, MatchAssignment>> result = new ArrayList<>();
-
+    private static List<Schedule> assignTeams(Schedule schedule, MatchAssignment assignment) {
+        var assignments = schedule.getAssignmentMap();
         List<Match> followUps = assignment.getMatch().getFollowUps();
         if (followUps.size() == 1) {
             var followUpAssignment = assignments.get(followUps.get(0).getName());
             var teamAWin = followUpAssignment.assign(assignment.getTeams().get(0));
-            result.add(assign(assignments, teamAWin));
             var teamBWin = followUpAssignment.assign(assignment.getTeams().get(1));
-            result.add(assign(assignments, teamBWin));
+            return List.of(
+                    schedule.withNewAssignment(teamAWin),
+                    schedule.withNewAssignment(teamBWin)
+            );
         } else if (followUps.size() == 2) {
             var followUpAssignmentA = assignments.get(followUps.get(0).getName());
             var followUpAssignmentB = assignments.get(followUps.get(1).getName());
             var teamAWin = followUpAssignmentA.assign(assignment.getTeams().get(0));
             var teamBLoose = followUpAssignmentB.assign(assignment.getTeams().get(1));
-            result.add(assign(assign(assignments, teamBLoose), teamAWin));
             var teamALoose = followUpAssignmentA.assign(assignment.getTeams().get(1));
             var teamBWin = followUpAssignmentB.assign(assignment.getTeams().get(0));
-            result.add(assign(assign(assignments, teamBWin), teamALoose));
-        } else {
-            result.add(assignments);
+            return List.of(
+                    schedule.withNewAssignment(teamBLoose).withNewAssignment(teamAWin),
+                    schedule.withNewAssignment(teamBWin).withNewAssignment(teamALoose)
+            );
         }
-
-        return result;
-    }
-
-    private static Map<String, MatchAssignment> assign(Map<String, MatchAssignment> assignments,
-                                                       MatchAssignment followUpAssignment) {
-        Map<String, MatchAssignment> newAssignment = new HashMap<>(assignments);
-        newAssignment.put(followUpAssignment.getMatch().getName(), followUpAssignment);
-        return Collections.unmodifiableMap(newAssignment);
+        return List.of(schedule);
     }
 }

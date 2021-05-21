@@ -29,16 +29,22 @@ public class MatchAssignment {
         return withTeams(newTeams);
     }
 
+    public MatchAssignment assign(List<Team> newTeams) {
+        List<Team> result = new ArrayList<>(teams.size() + newTeams.size());
+        result.addAll(teams);
+        result.addAll(newTeams);
+        if (result.size() > 2) {
+            throw new IllegalStateException("Too many teams assigned for match " + this + ": " + result);
+        }
+        return withTeams(result);
+    }
+
     public boolean isTeamsAssigned() {
         return teams.size() == 2;
     }
 
     public boolean isNotScheduled() {
         return startTime == null;
-    }
-
-    public boolean isScheduled() {
-        return startTime != null;
     }
 
     public int nextAvailableStart(int baseTime) {
