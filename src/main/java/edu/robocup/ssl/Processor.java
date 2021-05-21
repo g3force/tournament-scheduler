@@ -59,7 +59,7 @@ public class Processor implements Runnable {
         }
         executorService.shutdown();
         boolean terminated = executorService.awaitTermination(10, TimeUnit.SECONDS);
-        if (terminated) {
+        if (!terminated) {
             System.out.println("Executor service did not terminate in time");
         }
         evaluator.summary();
