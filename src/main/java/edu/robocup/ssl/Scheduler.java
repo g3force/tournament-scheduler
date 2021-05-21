@@ -17,17 +17,16 @@ public class Scheduler {
 
     private final Map<String, MatchAssignment> emptyAssignmentMap;
     private final List<UmlComponentDiagram.ConnectionPair> connections;
-    private final int numTeams;
+    private final int initialStart;
 
-    public static Scheduler load(Path tournamentDiagram) throws IOException {
+    public static Scheduler load(Path tournamentDiagram, int initialStart) throws IOException {
         var diagram = UmlComponentDiagram.parse(tournamentDiagram);
 
         Map<String, MatchAssignment> emptyAssignmentMap = new HashMap<>();
         Map<String, Match> matches = loadMatches(diagram);
         matches.forEach((name, match) -> emptyAssignmentMap.put(name, MatchAssignment.of(match)));
 
-        var numTeams = diagram.getActors().size();
-        return new Scheduler(emptyAssignmentMap, diagram.getConnections(), numTeams);
+        return new Scheduler(emptyAssignmentMap, diagram.getConnections(), initialStart);
     }
 
     private static Map<String, Match> loadMatches(UmlComponentDiagram diagram) {
@@ -35,20 +34,19 @@ public class Scheduler {
         diagram.getConnections().stream()
                 .filter(e -> matches.containsKey(e.getFrom()))
                 .forEach(e -> matches.get(e.getFrom()).followUp(matches.get(e.getTo())));
+        diagram.getConnections().stream()
+                .filter(e -> matches.containsKey(e.getFrom()))
+                .forEach(e -> matches.get(e.getTo()).predecessor(matches.get(e.getFrom())));
         return matches;
     }
 
     private Map<String, MatchAssignment> assignTeamsToInitialMatches(List<Team> teams) {
         Map<String, Team> teamAssignment = new HashMap<>();
         for (var i = 0; i < teams.size(); i++) {
-            teamAssignment.put("T" + (i+1), teams.get(i));
+            teamAssignment.put("T" + (i + 1), teams.get(i));
         }
 
         var matchAssignmentMap = new HashMap<>(emptyAssignmentMap);
-//        List<MatchAssignment> assignments = new ArrayList<>(emptyAssignmentMap.values());
-//        for (var assignment : assignments) {
-//            
-//        }
 
         connections.stream()
                 .filter(e -> teamAssignment.containsKey(e.getFrom()))
@@ -84,7 +82,7 @@ public class Scheduler {
     }
 
 
-    private static Optional<MatchAssignment> scheduleMatches(Map<String, MatchAssignment> assignments) {
+    private Optional<MatchAssignment> scheduleMatches(Map<String, MatchAssignment> assignments) {
 
         return assignments.values().stream()
                 .filter(MatchAssignment::isNotScheduled)
@@ -93,12 +91,9 @@ public class Scheduler {
                 .map(m -> scheduleMatch(assignments, m));
     }
 
-    private static MatchAssignment scheduleMatch(Map<String, MatchAssignment> assignments, MatchAssignment assignment) {
-        int startTime = assignments.values().stream()
-                .filter(m -> m.getStartTime() != null)
-                .mapToInt(MatchAssignment::getStartTime)
-                .max()
-                .orElse(0);
+    private MatchAssignment scheduleMatch(Map<String, MatchAssignment> assignments, MatchAssignment assignment) {
+        int startTime = assignment.getMatch().getPredecessors().stream()
+                .mapToInt(m -> assignments.get(m.getName()).getStartTime()).max().orElse(initialStart);
         return assignment.schedule(startTime + 1);
     }
 

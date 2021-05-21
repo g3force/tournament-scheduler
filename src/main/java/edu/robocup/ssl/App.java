@@ -8,8 +8,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
@@ -18,13 +23,16 @@ public class App {
     private final Scheduler schedulerUpper;
     private final Scheduler schedulerLower;
     private final long start = System.nanoTime();
+    private long lastStart = start;
+    private boolean validate = false;
     private int count;
     private int maxEnd;
+    private int overallMaxNumFields;
 
-    public App() throws IOException {
+    public App(int initialStart) throws IOException {
         teams = loadTeams(Paths.get("input.csv"));
-        schedulerUpper = Scheduler.load(Path.of("DD8.puml"));
-        schedulerLower = Scheduler.load(Path.of("DD8.puml"));
+        schedulerUpper = Scheduler.load(Path.of("DD8.puml"), initialStart);
+        schedulerLower = Scheduler.load(Path.of("DD8.puml"), initialStart);
     }
 
     private static List<Team> loadTeams(Path csvFile) throws IOException {
@@ -46,16 +54,54 @@ public class App {
                 .mapToInt(m -> m.values().stream().mapToInt(MatchAssignment::getStartTime).max().orElseThrow()).max()
                 .orElseThrow();
 
+        var maxNumFields = allScheduled.stream()
+                .mapToInt(m -> m.values().stream()
+                        .collect(Collectors.groupingBy(MatchAssignment::getStartTime))
+                        .values()
+                        .stream()
+                        .mapToInt(Collection::size)
+                        .max()
+                        .orElseThrow())
+                .max()
+                .orElseThrow();
+
         if (maxDuration > maxEnd) {
             maxEnd = maxDuration;
+            System.out.println("maxEnd: " + maxEnd);
+        }
+
+        if (validate) {
+            if (maxNumFields > this.overallMaxNumFields) {
+                overallMaxNumFields = maxNumFields;
+                System.out.println("Max fields: " + overallMaxNumFields);
+            }
+
+            allScheduled.forEach(this::validateSchedule);
         }
 
         count++;
-        if (count % 10 == 0) {
-            long elapsed = (long) ((System.nanoTime() - start) / 1e6);
-            double speed = elapsed / (double) count;
-            System.out.printf("%6d: %d (%.1f)\n", elapsed, count, speed);
+        int m = 10;
+        if (count % m == 0) {
+            long now = System.nanoTime();
+            long totalElapsed = (long) ((now - start) / 1e6);
+            long elapsed = (long) ((now - lastStart) / 1e6);
+            double avgSpeed = totalElapsed / (double) count;
+            double speed = elapsed / (double) m;
+            System.out.printf("%6d: %d (%.1f|%.1f)%n", totalElapsed, count, avgSpeed, speed);
+            lastStart = now;
         }
+    }
+
+    private void validateSchedule(Map<String, MatchAssignment> ass) {
+        Map<Integer, Set<Team>> foo = new HashMap<>();
+        ass.forEach((k, v) -> {
+            var bar = foo.computeIfAbsent(v.getStartTime(), a -> new HashSet<>());
+            v.getTeams().forEach(t -> {
+                if (!bar.add(t)) {
+                    System.out.println("Duplicate team");
+                }
+            });
+        });
     }
 
     private void printSchedule(List<Team> teams, int numSchedulesToPrint) {
@@ -72,7 +118,7 @@ public class App {
             match.values().stream()
                     .filter(m -> m.getStartTime() != null)
                     .sorted(Comparator.comparing(MatchAssignment::getStartTime))
-                    .forEach(m -> System.out.printf("%6s: %3d %20s vs. %s\n",
+                    .forEach(m -> System.out.printf("%6s: %3d %20s vs. %s%n",
                             m.getMatch().getName(),
                             m.getStartTime(),
                             m.getTeams().get(0).getName(),
@@ -81,10 +127,11 @@ public class App {
     }
 
     public static void main(String[] args) throws IOException {
-        var app = new App();
+        int initialStart = 0;
+        var app = new App(initialStart);
 
         if (args.length > 0) {
-            app.printSchedule(app.teams.subList(0, 8), 2);
+            app.printSchedule(app.teams.subList(0, 8), 10);
         } else {
             PermutationIterator<Integer> teamPermutationIterator =
                     new PermutationIterator<>(List.of(0, 1, 2, 3, 4, 5, 6, 7));

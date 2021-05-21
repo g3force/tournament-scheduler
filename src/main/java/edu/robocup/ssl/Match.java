@@ -11,6 +11,8 @@ public class Match {
     String name;
     @ToString.Exclude
     List<Match> followUps = new ArrayList<>();
+    @ToString.Exclude
+    List<Match> predecessors = new ArrayList<>();
 
     public Match(String name) {
         this.name = name;
@@ -18,5 +20,9 @@ public class Match {
 
     public void followUp(Match match) {
         followUps.add(match);
+    }
+
+    public void predecessor(Match match) {
+        predecessors.add(match);
     }
 }
