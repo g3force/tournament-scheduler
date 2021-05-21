@@ -2,6 +2,7 @@ package edu.robocup.ssl;
 
 import lombok.Getter;
 import lombok.Setter;
+import org.apache.commons.math3.stat.Frequency;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -28,6 +29,9 @@ public class Evaluator {
     private boolean findMaxEndTime = true;
     @Setter
     private boolean findMaxNumFields = false;
+
+    private final Frequency maxEndTimeFrequency = new Frequency();
+    private final Frequency maxNumFieldsFrequency = new Frequency();
 
 
     public void process(List<Schedule> allSchedules) {
@@ -67,6 +71,7 @@ public class Evaluator {
                 .mapToInt(Schedule::findMaxNumFields)
                 .max()
                 .orElse(0);
+        maxNumFieldsFrequency.addValue(maxNumFields);
         overallMaxNumFields.accumulateAndGet(maxNumFields, Math::max);
     }
 
@@ -74,6 +79,7 @@ public class Evaluator {
         var maxEndTime = allSchedules.stream()
                 .mapToInt(Schedule::findMaxEndTime).max()
                 .orElse(0);
+        maxEndTimeFrequency.addValue(maxEndTime);
         overallMaxEndTime.accumulateAndGet(maxEndTime, Math::max);
     }
 
@@ -93,5 +99,7 @@ public class Evaluator {
         System.out.println("Num tournaments: " + numTournaments.get());
         System.out.println("Max end time: " + overallMaxEndTime.get());
         System.out.println("Max fields: " + overallMaxNumFields.get());
+        System.out.println("Frequency max end time:\n" + maxEndTimeFrequency);
+        System.out.println("Frequency max fields:\n" + maxNumFieldsFrequency);
     }
 }

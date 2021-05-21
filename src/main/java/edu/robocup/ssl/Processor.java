@@ -43,12 +43,14 @@ public class Processor implements Runnable {
         workerQueue = new LinkedBlockingDeque<>(numThreads * 2);
         scheduler = Scheduler.load(tournamentDiagramFile, initialStart);
         evaluator = new Evaluator();
+        evaluator.setFindMaxNumFields(true);
 
         var executorService = Executors.newScheduledThreadPool(numThreads + 1);
         for (int i = 0; i < numThreads; i++) {
             executorService.submit(new WorkerThread());
         }
         executorService.scheduleAtFixedRate(new StatsThread(), 1, 1, TimeUnit.SECONDS);
+        executorService.scheduleAtFixedRate(new SummaryThread(), 10, 60, TimeUnit.SECONDS);
 
         Iterator<int[]> iterator = CombinatoricsUtils.combinationsIterator(16, 8);
         while (iterator.hasNext()) {
@@ -103,6 +105,13 @@ public class Processor implements Runnable {
         @Override
         public void run() {
             evaluator.printStatistics();
+        }
+    }
+
+    private class SummaryThread implements Runnable {
+        @Override
+        public void run() {
+            evaluator.summary();
         }
     }
 }
