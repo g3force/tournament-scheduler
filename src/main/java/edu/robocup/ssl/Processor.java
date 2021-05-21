@@ -7,10 +7,12 @@ import picocli.CommandLine;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -35,6 +37,7 @@ public class Processor implements Runnable {
     private Evaluator evaluator;
     private Scheduler scheduler;
 
+    private final Set<Integer> completedHashes = new HashSet<>(500_000);
 
     @SneakyThrows
     @Override
@@ -69,6 +72,10 @@ public class Processor implements Runnable {
 
     private void process(Map<Match, List<Team>> combination) {
         var allSchedules = scheduler.findAllSchedules(combination);
+        int hashCode = allSchedules.hashCode();
+        if (!completedHashes.add(hashCode)) {
+            System.out.println("Found duplicate:" + hashCode);
+        }
         evaluator.process(allSchedules);
     }
 
