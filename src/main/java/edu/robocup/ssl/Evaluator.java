@@ -2,27 +2,26 @@ package edu.robocup.ssl;
 
 import lombok.Getter;
 import lombok.Setter;
-import picocli.CommandLine;
 
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Evaluator {
     private final long start = System.nanoTime();
     private long lastStart = start;
+    private int lastNumTournaments;
 
     @Getter
-    private int numTournaments;
+    private final AtomicInteger numTournaments = new AtomicInteger();
     @Getter
-    private int overallMaxEndTime;
+    private final AtomicInteger overallMaxEndTime = new AtomicInteger();
     @Getter
-    private int overallMaxNumFields;
+    private final AtomicInteger overallMaxNumFields = new AtomicInteger();
 
-    @Setter
-    private int printStatsEvery = 10;
     @Setter
     private boolean validate = false;
     @Setter
@@ -32,7 +31,7 @@ public class Evaluator {
 
 
     public void process(List<Schedule> allSchedules) {
-        numTournaments++;
+        numTournaments.incrementAndGet();
 
         if (findMaxNumFields) {
             updateMaxNumFields(allSchedules);
@@ -45,20 +44,22 @@ public class Evaluator {
         if (validate) {
             allSchedules.forEach(this::validateSchedule);
         }
-
-        printStatistics();
     }
 
-    private void printStatistics() {
-        if (numTournaments % printStatsEvery == 0) {
-            long now = System.nanoTime();
-            long totalElapsed = (long) ((now - start) / 1e6);
-            long elapsed = (long) ((now - lastStart) / 1e6);
-            double avgSpeed = totalElapsed / (double) numTournaments;
-            double speed = elapsed / (double) printStatsEvery;
-            System.out.printf("%6d: %d (%.1f|%.1f)%n", totalElapsed, numTournaments, avgSpeed, speed);
-            lastStart = now;
-        }
+    public void printStatistics() {
+        int n = numTournaments.get();
+        long now = System.nanoTime();
+        long totalElapsed = (long) ((now - start) / 1e6);
+        double elapsed = ((now - lastStart) / 1e9);
+        int tournamentsProcessed = n - lastNumTournaments;
+        double speed = tournamentsProcessed / elapsed;
+        System.out.printf("%6d: %d (%4.1f/s) | %d%n",
+                totalElapsed,
+                n,
+                speed,
+                overallMaxEndTime.get());
+        lastStart = now;
+        lastNumTournaments = n;
     }
 
     private void updateMaxNumFields(List<Schedule> allSchedules) {
@@ -66,19 +67,14 @@ public class Evaluator {
                 .mapToInt(Schedule::findMaxNumFields)
                 .max()
                 .orElse(0);
-        if (maxNumFields > this.overallMaxNumFields) {
-            overallMaxNumFields = maxNumFields;
-        }
+        overallMaxNumFields.accumulateAndGet(maxNumFields, Math::max);
     }
 
     private void updateMaxEndTime(List<Schedule> allSchedules) {
         var maxEndTime = allSchedules.stream()
                 .mapToInt(Schedule::findMaxEndTime).max()
                 .orElse(0);
-        if (overallMaxEndTime > maxEndTime) {
-            overallMaxEndTime = maxEndTime;
-            System.out.println("maxEnd: " + maxEndTime);
-        }
+        overallMaxEndTime.accumulateAndGet(maxEndTime, Math::max);
     }
 
     private void validateSchedule(Schedule schedule) {
@@ -94,8 +90,8 @@ public class Evaluator {
     }
 
     public void summary() {
-        System.out.println("Num tournaments: " + numTournaments);
-        System.out.println("Max end time: " + overallMaxEndTime);
-        System.out.println("Max fields: " + overallMaxNumFields);
+        System.out.println("Num tournaments: " + numTournaments.get());
+        System.out.println("Max end time: " + overallMaxEndTime.get());
+        System.out.println("Max fields: " + overallMaxNumFields.get());
     }
 }
