@@ -176,19 +176,26 @@ public class App {
             match.values().stream()
                     .filter(m -> m.getStartTime() != null)
                     .sorted(Comparator.comparing(MatchAssignment::getStartTime))
-                    .forEach(m -> System.out.printf("%6s: %3d %20s vs. %s%n",
+                    .forEach(m -> System.out.printf("%6s: %3d|%2d|%2d %20s vs. %-20s %02d-%02d | %02d-%02d%n",
                             m.getMatch().getName(),
                             m.getStartTime(),
+                            m.getStartTime() / 24,
+                            m.getStartTime() % 24,
                             m.getTeams().get(0).getName(),
-                            m.getTeams().get(1).getName()));
+                            m.getTeams().get(1).getName(),
+                            m.getTeams().get(0).getAvailStart(),
+                            m.getTeams().get(0).getAvailEnd(),
+                            m.getTeams().get(1).getAvailStart(),
+                            m.getTeams().get(1).getAvailEnd()));
         }
     }
 
     public static void main(String[] args) throws IOException {
-        int initialStart = 0;
+        int initialStart = 35;
         var app = new App(initialStart);
 
         if (args.length > 0) {
+            app.validate = true;
             var teamAssignment = app.calcTeamAssignment(List.of(0, 1, 2, 3, 4, 5, 6, 7));
             app.printSchedule(teamAssignment, 10);
         } else {
